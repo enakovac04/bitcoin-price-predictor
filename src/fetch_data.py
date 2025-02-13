@@ -3,7 +3,7 @@ import pandas as pd
 import os
 from datetime import datetime
 
-def fetch_bitcoin_data(start_date="2020-01-01"):
+def fetch_bitcoin_data(start_date="2021-01-01"):
     """
     Fetch historical Bitcoin price data from Yahoo Finance up to the current date.
     """
