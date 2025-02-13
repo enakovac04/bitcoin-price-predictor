@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import datetime
-import matplotlib.pyplot as plt
 import yfinance as yf
 from sklearn.preprocessing import MinMaxScaler
 
@@ -25,10 +24,17 @@ df["Close_Scaled"] = scaler.fit_transform(df[["Close"]])
 
 # ======== Prediction Function =========
 
+# Store past predictions so we don't recalculate them
+prediction_cache = {}
+
 def predict_price(n_days):
     """
     Predict Bitcoin price for the next 'n_days' using the trained LSTM model.
+    Uses caching to store previously predicted values for efficiency.
     """
+    if n_days in prediction_cache:
+        return prediction_cache[n_days]  # Return cached result if available
+
     last_30_days = df["Close_Scaled"].values[-30:].reshape(1, 30, 1)  # Get the last 30 days
     predicted_prices = []
 
@@ -37,11 +43,13 @@ def predict_price(n_days):
         predicted_price = scaler.inverse_transform(predicted_scaled.reshape(-1, 1))[0][0]
         predicted_prices.append(predicted_price)
 
-        # Shift the input data to include the newly predicted value
+        # Shift input to include the new predicted value
         new_input = np.append(last_30_days[:, 1:, :], predicted_scaled.reshape(1, 1, 1), axis=1)
         last_30_days = new_input
 
-    return predicted_prices
+    prediction_cache[n_days] = predicted_prices[-1]  # Store in cache
+    return predicted_prices[-1]  # Return final predicted price
+
 
 def get_actual_price(date):
     """ Fetch actual Bitcoin price from Yahoo Finance for the selected past date. """
@@ -56,33 +64,47 @@ def get_actual_price(date):
 # Custom Styling
 st.markdown("""
     <style>
-        .main { background-color: #f8f9fa; }
-        h1 {
-            color: #ff6600;
-            text-align: center;
-            font-size: 36px;
+        body { background-color: #f8f9fa; }
+        .stApp {
+            background: linear-gradient(to right, #f8f9fa, #e9ecef);
+            padding: 20px;
         }
-        .stAlert {
+        h1 {
+            color: #343a40;
+            text-align: center;
+            font-size: 42px;
+            font-weight: bold;
+        }
+        .subheader {
+            color: #6c757d;
+            text-align: center;
             font-size: 20px;
+        }
+        .success-box, .warning-box {
+            font-size: 22px;
+            padding: 15px;
+            border-radius: 5px;
             text-align: center;
         }
         .success-box {
-            font-size: 22px;
             background-color: #d4edda;
-            padding: 15px;
-            border-radius: 5px;
+            border-left: 6px solid #28a745;
         }
         .warning-box {
-            font-size: 22px;
             background-color: #fff3cd;
-            padding: 15px;
-            border-radius: 5px;
+            border-left: 6px solid #ffc107;
+        }
+        .footer {
+            text-align: center;
+            font-size: 16px;
+            color: #6c757d;
+            margin-top: 30px;
         }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📈 Bitcoin Price Predictor")
-st.subheader("🔮 Predict future Bitcoin prices using an advanced LSTM model.")
+st.markdown('<h1>📉 Bitcoin Price Predictor</h1>', unsafe_allow_html=True)
+st.markdown('<p class="subheader">🔮 Predict future Bitcoin prices using an advanced LSTM model.</p>', unsafe_allow_html=True)
 
 # User input: Select prediction date
 selected_date = st.date_input("📅 Select a date for prediction:", datetime.date.today())
@@ -104,32 +126,11 @@ if days_ahead < 0:
 elif days_ahead == 0:
     st.error("⚠ Please select a future date.")
 else:
-    predicted_prices = predict_price(days_ahead)
-    predicted_price = predicted_prices[-1]  # Last predicted value for selected date
-
+    predicted_price = predict_price(days_ahead)
     st.markdown(f"""
     <div class="success-box">
         📅 <b>Predicted Bitcoin Price on {selected_date}:</b> <span style="color:#28a745;"><b>${predicted_price:.2f}</b></span>
     </div>
     """, unsafe_allow_html=True)
 
-    # ======== Graph: Show Historical & Next 30-Day Predictions =========
-
-    future_days = 30
-    future_dates = [df.index[-1] + pd.Timedelta(days=i) for i in range(1, future_days + 1)]
-    future_df = pd.DataFrame({"Date": future_dates, "Predicted Close": predict_price(future_days)})
-    future_df.set_index("Date", inplace=True)
-
-    # Plot historical & predicted prices
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(df.index[-100:].to_numpy(), df["Close"][-100:].to_numpy(), label="📉 Actual Prices", color="blue")
-    ax.plot(future_df.index.to_numpy(), future_df["Predicted Close"].to_numpy(), label="🔮 Predicted Next 30 Days", linestyle="dashed", color="red")
-    ax.set_title("Bitcoin Price Prediction for Next 30 Days")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Price (USD)")
-    ax.legend()
-
-    # Show the updated graph
-    st.pyplot(fig)
-
-st.markdown("🚀 *Data fetched from Yahoo Finance and analyzed using Deep Learning (LSTM).*")
+st.markdown('<p class="footer">🚀 Data fetched from Yahoo Finance and analyzed using Deep Learning (LSTM).</p>', unsafe_allow_html=True)

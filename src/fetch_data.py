@@ -12,7 +12,6 @@ def fetch_bitcoin_data(start_date="2021-01-01"):
     try:
         # Dynamically set the end date as today
         end_date = datetime.today().strftime('%Y-%m-%d')
-        print(end_date)
 
         # Download BTC data from Yahoo Finance
         btc = yf.download("BTC-USD", start=start_date, end=end_date, interval="1d")
